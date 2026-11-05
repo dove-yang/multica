@@ -106,7 +106,12 @@ export function useVoiceInput({
     committingRef.current = true;
     clearTimers();
 
-    const transcript = (finalRef.current || partialRef.current).trim();
+    // iOS returns cumulative partials but can also emit per-segment finals.
+    // The longer string is the one that has seen the most speech.
+    const finalText = finalRef.current.trim();
+    const partialText = partialRef.current.trim();
+    const transcript =
+      finalText.length >= partialText.length ? finalText : partialText;
     if (!transcript) {
       committingRef.current = false;
       setPartialText("");
