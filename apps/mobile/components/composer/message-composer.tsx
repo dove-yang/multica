@@ -66,6 +66,15 @@ import {
   type MentionChip,
 } from "@/components/issue/composer-attachment-row";
 import { useT } from "@/lib/i18n";
+import {
+  useVoiceInput,
+  VoiceInputButton,
+  VoiceLiveTranscript,
+  VoiceOverlay,
+  VoicePermissionSheet,
+  VoiceRecordingStrip,
+  type VoiceOverlayMode,
+} from "@/features/voice-input";
 
 export interface MessageComposerReplyTarget {
   actorName: string;
@@ -185,6 +194,11 @@ export function MessageComposer({
   const [internalText, setInternalText] = useState("");
   const [attachments, setAttachments] = useState<ComposerAttachmentItem[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [pendingSelection, setPendingSelection] = useState<{
+    start: number;
+    end: number;
+  } | null>(null);
+  const selectionRef = useRef<{ start: number; end: number } | null>(null);
 
   // Hybrid controlled / uncontrolled pattern (React-canonical). Chat
   // passes `value`/`onChangeText` for cross-session draft persistence;
@@ -235,6 +249,39 @@ export function MessageComposer({
     !submitting &&
     !hasInFlightUpload &&
     (text.trim().length > 0 || mentions.length > 0);
+
+  const textRef = useRef(text);
+  textRef.current = text;
+
+  // Voice input owns its own state machine; the composer only supplies the
+  // current draft and receives the insertion result. See features/voice-input.
+  const { t: tVoice } = useT("voiceInput");
+  const voice = useVoiceInput({
+    enabled: !disabled && !isSending && !submitting,
+    getDraft: () => ({ text: textRef.current, selection: selectionRef.current }),
+    onStart: () => {
+      Keyboard.dismiss();
+      setExpanded(true);
+    },
+    onFinish: ({ text: next, cursor }) => {
+      setText(next);
+      setPendingSelection({ start: cursor, end: cursor });
+      requestAnimationFrame(() => inputRef.current?.focus());
+    },
+    onCancel: () => {
+      // Product decision: slide-up cancel empties the composer.
+      setText("");
+      setPendingSelection(null);
+    },
+  });
+
+  const voiceOverlayMode: VoiceOverlayMode = voice.isArmed
+    ? "cancel"
+    : voice.isRecording
+      ? "hint"
+      : voice.notice
+        ? "notice"
+        : "hidden";
 
   const expand = useCallback(() => {
     if (disabled) return;
@@ -450,6 +497,9 @@ export function MessageComposer({
    *  trigger a collapse before its onPress runs. */
   const onBlur = useCallback(() => {
     setTimeout(() => {
+      // Recording hides the input programmatically; that must not collapse
+      // the composer (and unmount the mic mid-gesture).
+      if (voice.isActive) return;
       const empty =
         text.trim().length === 0 &&
         attachments.length === 0 &&
@@ -459,7 +509,7 @@ export function MessageComposer({
         onClearReplyTarget?.();
       }
     }, 80);
-  }, [text, attachments.length, mentions.length, onClearReplyTarget]);
+  }, [text, attachments.length, mentions.length, onClearReplyTarget, voice.isActive]);
 
   const pillContent = (
     <View
@@ -529,6 +579,13 @@ export function MessageComposer({
         </View>
       )}
 
+      <VoiceOverlay
+        mode={voiceOverlayMode}
+        hintText={tVoice("recording.slide_up_to_cancel")}
+        cancelText={tVoice("recording.release_to_cancel")}
+        noticeText={voice.notice ? tVoice(`notice.${voice.notice}`) : null}
+      />
+
       <View
         className="rounded-2xl border border-border bg-secondary"
         style={continuousCorners}
@@ -548,44 +605,88 @@ export function MessageComposer({
         <TextInput
           ref={inputRef}
           value={text}
-          onChangeText={setText}
+          onChangeText={(next) => {
+            setText(next);
+            // Release the one-shot controlled selection as soon as the user
+            // edits, otherwise the caret would stay pinned to the insert point.
+            if (pendingSelection) setPendingSelection(null);
+          }}
           onBlur={onBlur}
+          selection={pendingSelection ?? undefined}
+          onSelectionChange={(event) => {
+            selectionRef.current = event.nativeEvent.selection;
+            if (pendingSelection) setPendingSelection(null);
+          }}
           placeholder={resolvedPlaceholder}
           placeholderTextColor={theme.mutedForeground}
           multiline
           editable={!disabled}
           className="px-4 pt-3 pb-1 text-base text-foreground"
-          style={{ minHeight: 28, maxHeight: 140, textAlignVertical: "top" }}
+          style={[
+            { minHeight: 28, maxHeight: 140, textAlignVertical: "top" },
+            voice.isActive ? { display: "none" } : null,
+          ]}
         />
 
+        {voice.isActive ? (
+          <VoiceLiveTranscript
+            text={voice.partialText}
+            transcribing={voice.isTranscribing}
+          />
+        ) : null}
+
         <View className="flex-row items-center px-2 pb-2 pt-1">
-          {/* @ leads the toolbar — highest-signal attachment (only one
-           *  that drives notifications) and cross-resource (people +
-           *  issues), pride-of-place left. */}
-          <IconButton
-            name="at"
-            iconSize={20}
-            color={mentions.length > 0 ? theme.primary : undefined}
-            onPress={onAtPress}
-            accessibilityLabel={t("composer.mention")}
-            className="h-8 w-8"
-          />
-          <IconButton
-            name="image-outline"
-            iconSize={20}
-            onPress={onImagePress}
-            accessibilityLabel={t("composer.upload_image")}
-            className="h-8 w-8"
-          />
-          <IconButton
-            name="attach-outline"
-            iconSize={20}
-            onPress={onFilePress}
-            accessibilityLabel={t("composer.upload_file")}
-            className="h-8 w-8"
-          />
+          {/* Hidden with a style (not unmounted) while dictating: the mic
+           *  button must stay mounted for the whole pan gesture. */}
+          <View
+            className="flex-row items-center"
+            style={voice.isActive ? { display: "none" } : undefined}
+          >
+            {/* @ leads the toolbar — highest-signal attachment (only one
+             *  that drives notifications) and cross-resource (people +
+             *  issues), pride-of-place left. */}
+            <IconButton
+              name="at"
+              iconSize={20}
+              color={mentions.length > 0 ? theme.primary : undefined}
+              onPress={onAtPress}
+              accessibilityLabel={t("composer.mention")}
+              className="h-8 w-8"
+            />
+            <IconButton
+              name="image-outline"
+              iconSize={20}
+              onPress={onImagePress}
+              accessibilityLabel={t("composer.upload_image")}
+              className="h-8 w-8"
+            />
+            <IconButton
+              name="attach-outline"
+              iconSize={20}
+              onPress={onFilePress}
+              accessibilityLabel={t("composer.upload_file")}
+              className="h-8 w-8"
+            />
+          </View>
           <View className="flex-1" />
-          {isSending && renderStop ? (
+          {voice.isActive ? (
+            <VoiceRecordingStrip
+              durationMs={voice.durationMs}
+              volume={voice.volume}
+              armed={voice.isArmed}
+              transcribing={voice.isTranscribing}
+            />
+          ) : null}
+          <VoiceInputButton
+            key="voice-input-mic"
+            enabled={!disabled}
+            recording={voice.isRecording}
+            panHandlers={voice.panHandlers}
+            onToggle={voice.toggleHandsFree}
+            label={tVoice("button.label")}
+            hint={tVoice("button.hint")}
+          />
+          {voice.isActive ? null : isSending && renderStop ? (
             renderStop()
           ) : (
             <IconButton
@@ -603,6 +704,13 @@ export function MessageComposer({
           )}
         </View>
       </View>
+
+      <VoicePermissionSheet
+        sheet={voice.permissionSheet}
+        onConfirm={voice.confirmPermission}
+        onOpenSettings={voice.openSettings}
+        onDismiss={voice.dismissPermission}
+      />
     </View>
   );
 
