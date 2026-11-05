@@ -1,0 +1,31 @@
+{
+  "button": {
+    "label": "Voice input",
+    "hint": "Hold to talk, slide up to cancel"
+  },
+  "listening": "Listening…",
+  "transcribing": "Transcribing…",
+  "recording": {
+    "release_to_finish": "Release to finish",
+    "slide_up_to_cancel": "Slide up to cancel",
+    "release_to_cancel": "Release to cancel"
+  },
+  "notice": {
+    "too_short": "Too short — hold and speak",
+    "empty": "Didn't catch that — try again",
+    "error": "Voice input is unavailable right now",
+    "cancelled": "Cancelled — input cleared",
+    "max_duration": "Reached the 60s limit — transcribing",
+    "permission_granted": "Microphone ready — hold to talk"
+  },
+  "permission": {
+    "title": "Allow Multica to use the microphone?",
+    "body": "Speech is turned into text by iOS dictation and inserted into the composer. Audio is not uploaded to Multica servers.",
+    "continue": "Continue",
+    "not_now": "Not now",
+    "denied_title": "Microphone access is off",
+    "denied_body": "Allow Microphone and Speech Recognition for Multica in Settings, then come back.",
+    "open_settings": "Open Settings",
+    "ok": "OK"
+  }
+}

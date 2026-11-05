@@ -1,0 +1,31 @@
+{
+  "button": {
+    "label": "语音输入",
+    "hint": "按住说话，上滑取消"
+  },
+  "listening": "正在听…",
+  "transcribing": "正在转写…",
+  "recording": {
+    "release_to_finish": "松手结束",
+    "slide_up_to_cancel": "上滑取消",
+    "release_to_cancel": "松开取消"
+  },
+  "notice": {
+    "too_short": "说话时间太短",
+    "empty": "没有听清，请再说一次",
+    "error": "语音识别暂不可用，请重试",
+    "cancelled": "已取消，输入框已清空",
+    "max_duration": "已到 60 秒上限，正在转写",
+    "permission_granted": "麦克风已就绪，按住麦克风说话"
+  },
+  "permission": {
+    "title": "允许 Multica 使用麦克风？",
+    "body": "语音会由 iOS 听写服务转成文字，插入到输入框，发送前你可以随意修改。录音不会上传到 Multica 服务器。",
+    "continue": "继续",
+    "not_now": "暂不",
+    "denied_title": "麦克风权限未开启",
+    "denied_body": "请在系统设置中允许 Multica 使用麦克风和语音识别，然后再回来试试。",
+    "open_settings": "去设置",
+    "ok": "知道了"
+  }
+}

@@ -83,6 +83,17 @@ export default ({ config }: ConfigContext): ExpoConfig => {
         },
       ],
       [
+        "expo-speech-recognition",
+        {
+          // Writes NSMicrophoneUsageDescription +
+          // NSSpeechRecognitionUsageDescription during prebuild.
+          microphonePermission:
+            "Allow Multica to use the microphone to turn your speech into text.",
+          speechRecognitionPermission:
+            "Allow Multica to use speech recognition to turn your speech into text.",
+        },
+      ],
+      [
         "expo-build-properties",
         {
           ios: {

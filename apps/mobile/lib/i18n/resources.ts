@@ -8,6 +8,7 @@ import navigationEn from "@/locales/en/navigation.json";
 import projectsEn from "@/locales/en/projects.json";
 import settingsEn from "@/locales/en/settings.json";
 import workspaceEn from "@/locales/en/workspace.json";
+import voiceInputEn from "@/features/voice-input/locales/en.json";
 import authZh from "@/locales/zh-Hans/auth.json";
 import chatZh from "@/locales/zh-Hans/chat.json";
 import commonZh from "@/locales/zh-Hans/common.json";
@@ -18,6 +19,7 @@ import navigationZh from "@/locales/zh-Hans/navigation.json";
 import projectsZh from "@/locales/zh-Hans/projects.json";
 import settingsZh from "@/locales/zh-Hans/settings.json";
 import workspaceZh from "@/locales/zh-Hans/workspace.json";
+import voiceInputZh from "@/features/voice-input/locales/zh-Hans.json";
 
 export const resources = {
   en: {
@@ -31,6 +33,7 @@ export const resources = {
     projects: projectsEn,
     settings: settingsEn,
     workspace: workspaceEn,
+    voiceInput: voiceInputEn,
   },
   "zh-Hans": {
     auth: authZh,
@@ -43,5 +46,6 @@ export const resources = {
     projects: projectsZh,
     settings: settingsZh,
     workspace: workspaceZh,
+    voiceInput: voiceInputZh,
   },
 } as const;
