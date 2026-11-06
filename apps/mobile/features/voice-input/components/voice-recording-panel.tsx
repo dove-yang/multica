@@ -51,8 +51,22 @@ export function VoiceRecordingPanel({
         {text || (transcribing ? t("transcribing") : t("listening"))}
       </Text>
 
-      <View className="flex-row items-center gap-3">
-        <View className="flex-1">
+      {/* The waveform is centred on the card itself, not on the space left
+       *  over by the status label — otherwise it drifts left whenever the
+       *  label ("松手结束" / "松开取消") changes width. */}
+      <View className="justify-center" style={{ height: 26 }}>
+        <View
+          pointerEvents="none"
+          style={{
+            position: "absolute",
+            left: 0,
+            right: 0,
+            top: 0,
+            bottom: 0,
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
           {transcribing ? (
             <ActivityIndicator size="small" color={theme.mutedForeground} />
           ) : (
@@ -62,7 +76,17 @@ export function VoiceRecordingPanel({
             />
           )}
         </View>
-        <View className="flex-row items-center gap-1">
+        <View
+          style={{
+            position: "absolute",
+            right: 0,
+            top: 0,
+            bottom: 0,
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 4,
+          }}
+        >
           {armed && !transcribing ? (
             <Ionicons
               name="arrow-up-circle"
