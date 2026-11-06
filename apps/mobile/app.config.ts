@@ -74,12 +74,15 @@ export default ({ config }: ConfigContext): ExpoConfig => {
         {
           // iOS NSPhotoLibraryUsageDescription. Without this string in
           // Info.plist, calling launchImageLibraryAsync hard-crashes on
-          // iOS 14+. Camera + microphone are disabled — we only ever read
-          // from the existing photo library.
+          // iOS 14+. Camera is disabled — we only ever read from the
+          // existing photo library. The microphone string is owned by
+          // expo-speech-recognition (voice input); `false` here would make
+          // this plugin strip the key that plugin just wrote.
           photosPermission:
             "Allow Multica to access your photos to attach images to issues and comments.",
           cameraPermission: false,
-          microphonePermission: false,
+          microphonePermission:
+            "Allow Multica to use the microphone to turn your speech into text.",
         },
       ],
       [
