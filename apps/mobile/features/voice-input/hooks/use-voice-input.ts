@@ -24,6 +24,8 @@ interface UseVoiceInputOptions {
   onFinish?: (result: InsertResult) => void;
   /** Cancel explicitly clears the composer (product decision). */
   onCancel?: () => void;
+  /** A short tap on the collapsed pill (expand + focus, like before). */
+  onTapComposer?: () => void;
 }
 
 /** Keep cumulative iOS finals from duplicating text when they overlap. */
@@ -41,6 +43,7 @@ export function useVoiceInput({
   onStart,
   onFinish,
   onCancel,
+  onTapComposer,
 }: UseVoiceInputOptions) {
   const locale = useLocale();
   const [status, setStatus] = useState<VoiceInputStatus>("idle");
@@ -69,8 +72,20 @@ export function useVoiceInput({
   const startRecordingRef = useRef<() => void>(() => {});
 
   // Latest callbacks, without re-creating the state machine on every render.
-  const optionsRef = useRef({ getDraft, onStart, onFinish, onCancel });
-  optionsRef.current = { getDraft, onStart, onFinish, onCancel };
+  const optionsRef = useRef({
+    getDraft,
+    onStart,
+    onFinish,
+    onCancel,
+    onTapComposer,
+  });
+  optionsRef.current = {
+    getDraft,
+    onStart,
+    onFinish,
+    onCancel,
+    onTapComposer,
+  };
 
   const showNotice = useCallback((next: Exclude<VoiceNotice, null>) => {
     setNotice(next);
@@ -314,37 +329,54 @@ export function useVoiceInput({
     }
   }, [begin]);
 
+  const pressStart = useCallback(() => {
+    pressingRef.current = true;
+    void begin("hold");
+  }, [begin]);
+
+  const pressMove = useCallback((dy: number) => {
+    if (
+      statusRef.current !== "recording" &&
+      statusRef.current !== "armed"
+    ) {
+      return;
+    }
+    const armed = dy <= -VOICE_INPUT_CONFIG.cancelThresholdPt;
+    const isArmed = statusRef.current === "armed";
+    if (armed === isArmed) return;
+    if (armed) {
+      Haptics.notificationAsync(
+        Haptics.NotificationFeedbackType.Warning,
+      ).catch(() => {});
+    }
+    updateStatus(armed ? "armed" : "recording");
+  }, [updateStatus]);
+
+  const pressEnd = useCallback((dy: number, cancelled: boolean) => {
+    pressingRef.current = false;
+    if (cancelled) {
+      finishRef.current(true);
+      return;
+    }
+    finishRef.current(dy <= -VOICE_INPUT_CONFIG.cancelThresholdPt);
+  }, []);
+
   const panHandlers = useHoldToTalk({
     enabled: enabled && status === "idle",
-    onStart: () => {
-      pressingRef.current = true;
-      void begin("hold");
-    },
-    onMove: (dy) => {
-      if (
-        statusRef.current !== "recording" &&
-        statusRef.current !== "armed"
-      ) {
-        return;
-      }
-      const armed = dy <= -VOICE_INPUT_CONFIG.cancelThresholdPt;
-      const isArmed = statusRef.current === "armed";
-      if (armed === isArmed) return;
-      if (armed) {
-        Haptics.notificationAsync(
-          Haptics.NotificationFeedbackType.Warning,
-        ).catch(() => {});
-      }
-      updateStatus(armed ? "armed" : "recording");
-    },
-    onEnd: (dy, cancelled) => {
-      pressingRef.current = false;
-      if (cancelled) {
-        finishRef.current(true);
-        return;
-      }
-      finishRef.current(dy <= -VOICE_INPUT_CONFIG.cancelThresholdPt);
-    },
+    onStart: pressStart,
+    onMove: pressMove,
+    onEnd: pressEnd,
+  });
+
+  // Same gesture on the collapsed pill: a short tap expands the composer,
+  // holding it starts dictation in place (DeepSeek-style "按住说话").
+  const pillPanHandlers = useHoldToTalk({
+    enabled: enabled && status === "idle",
+    delayMs: 200,
+    onStart: pressStart,
+    onMove: pressMove,
+    onEnd: pressEnd,
+    onTap: () => optionsRef.current.onTapComposer?.(),
   });
 
   useEffect(() => {
@@ -384,6 +416,7 @@ export function useVoiceInput({
     notice,
     permissionSheet,
     panHandlers,
+    pillPanHandlers,
     confirmPermission,
     dismissPermission,
     openSettings,

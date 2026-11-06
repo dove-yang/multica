@@ -105,13 +105,17 @@ export function ChatComposer({
         pathname: "/[workspace]/mention-picker",
         params: { workspace: wsSlug ?? "", mode: "chat" },
       }}
-      placeholder={sending ? t("composer.working") : t("composer.message")}
+      // DeepSeek-style empty state: the bar itself is the "hold to talk"
+      // surface, so the placeholder says so.
+      placeholder={
+        sending ? t("composer.working") : t("voiceInput:composer_placeholder")
+      }
       pillLabel={
         sending
           ? t("composer.working")
           : disabled
             ? (disabledReason ?? t("composer.unavailable"))
-            : t("composer.message")
+            : t("voiceInput:composer_placeholder")
       }
       pillIcon="chatbubble-ellipses-outline"
       disabled={disabled}

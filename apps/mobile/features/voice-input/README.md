@@ -1,9 +1,13 @@
 # Voice input (iOS)
 
-Hold the microphone in the composer, speak, release. Text lands in the
-composer at the caret — it is **never sent automatically**. Slide up past
-64 pt to arm the red "release to cancel" capsule; releasing there discards
-the take and **clears the composer**.
+Hold the composer (or its microphone) and speak; release. Text lands in
+the composer at the caret — it is **never sent automatically**. Slide up
+past 64 pt: the composer itself turns red and shows "release to cancel";
+releasing there discards the take and **clears the composer**.
+
+The interaction mirrors the DeepSeek app: the collapsed bar reads
+"Message or hold to talk" and can be held directly, and the recording
+face lives inside the composer instead of a floating overlay.
 
 ## Why this folder exists
 

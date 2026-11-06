@@ -3,6 +3,7 @@
     "label": "Voice input",
     "hint": "Hold to talk, slide up to cancel"
   },
+  "composer_placeholder": "Message or hold to talk",
   "listening": "Listening…",
   "transcribing": "Transcribing…",
   "recording": {

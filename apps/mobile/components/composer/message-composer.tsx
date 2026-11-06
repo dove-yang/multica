@@ -69,11 +69,8 @@ import { useT } from "@/lib/i18n";
 import {
   useVoiceInput,
   VoiceInputButton,
-  VoiceLiveTranscript,
-  VoiceOverlay,
   VoicePermissionSheet,
-  VoiceRecordingStrip,
-  type VoiceOverlayMode,
+  VoiceRecordingPanel,
 } from "@/features/voice-input";
 
 export interface MessageComposerReplyTarget {
@@ -186,8 +183,10 @@ export function MessageComposer({
   const { colorScheme } = useColorScheme();
   const theme = THEME[colorScheme];
   const { t } = useT("chat");
-  const resolvedPlaceholder = placeholder ?? t("composer.default_placeholder");
-  const resolvedPillLabel = pillLabel ?? t("composer.default_placeholder");
+  const { t: tVoice } = useT("voiceInput");
+  const resolvedPlaceholder =
+    placeholder ?? tVoice("composer_placeholder");
+  const resolvedPillLabel = pillLabel ?? tVoice("composer_placeholder");
   const insets = useSafeAreaInsets();
   const inputRef = useRef<TextInput>(null);
   const [expanded, setExpanded] = useState(false);
@@ -253,36 +252,6 @@ export function MessageComposer({
   const textRef = useRef(text);
   textRef.current = text;
 
-  // Voice input owns its own state machine; the composer only supplies the
-  // current draft and receives the insertion result. See features/voice-input.
-  const { t: tVoice } = useT("voiceInput");
-  const voice = useVoiceInput({
-    enabled: !disabled && !isSending && !submitting,
-    getDraft: () => ({ text: textRef.current, selection: selectionRef.current }),
-    onStart: () => {
-      Keyboard.dismiss();
-      setExpanded(true);
-    },
-    onFinish: ({ text: next, cursor }) => {
-      setText(next);
-      setPendingSelection({ start: cursor, end: cursor });
-      requestAnimationFrame(() => inputRef.current?.focus());
-    },
-    onCancel: () => {
-      // Product decision: slide-up cancel empties the composer.
-      setText("");
-      setPendingSelection(null);
-    },
-  });
-
-  const voiceOverlayMode: VoiceOverlayMode = voice.isArmed
-    ? "cancel"
-    : voice.isRecording
-      ? "hint"
-      : voice.notice
-        ? "notice"
-        : "hidden";
-
   const expand = useCallback(() => {
     if (disabled) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
@@ -293,6 +262,30 @@ export function MessageComposer({
     onClearReplyTarget?.();
     requestAnimationFrame(() => inputRef.current?.focus());
   }, [disabled, onClearReplyTarget]);
+
+  // Voice input owns its own state machine; the composer only supplies the
+  // current draft and receives the insertion result. See features/voice-input.
+  const voice = useVoiceInput({
+    enabled: !disabled && !isSending && !submitting,
+    getDraft: () => ({ text: textRef.current, selection: selectionRef.current }),
+    onStart: () => {
+      // Stay on whichever surface started the take: the collapsed bar keeps
+      // its own recording face, the expanded composer uses the card.
+      Keyboard.dismiss();
+    },
+    onFinish: ({ text: next, cursor }) => {
+      setText(next);
+      setPendingSelection({ start: cursor, end: cursor });
+      setExpanded(true);
+      requestAnimationFrame(() => inputRef.current?.focus());
+    },
+    onCancel: () => {
+      // Product decision: slide-up cancel empties the composer.
+      setText("");
+      setPendingSelection(null);
+    },
+    onTapComposer: expand,
+  });
 
   const handleSubmit = useCallback(async () => {
     if (!canSend) return;
@@ -516,23 +509,50 @@ export function MessageComposer({
       className="border-t border-border bg-background px-3 pt-2"
       style={{ paddingBottom: (manageKeyboard ? insets.bottom : 0) + 8 }}
     >
-      <Pressable
-        onPress={expand}
-        disabled={disabled}
+      <View
+        {...(disabled ? {} : voice.pillPanHandlers)}
+        accessible
         accessibilityRole="button"
-        accessibilityLabel={pillLabel}
+        accessibilityLabel={resolvedPillLabel}
+        accessibilityHint={tVoice("button.hint")}
         accessibilityState={{ disabled }}
-        className="flex-row items-center gap-2 h-11 px-4 rounded-full bg-secondary active:opacity-80"
+        onAccessibilityTap={expand}
+        className="bg-secondary"
+        style={{
+          borderRadius: voice.isActive ? 16 : 999,
+          borderWidth: 1,
+          borderColor: voice.isArmed
+            ? theme.destructive
+            : voice.isRecording
+              ? theme.brand
+              : "transparent",
+          backgroundColor: voice.isArmed
+            ? "rgba(239,68,68,0.06)"
+            : theme.secondary,
+          overflow: "hidden",
+        }}
       >
-        <Ionicons
-          name={pillIcon}
-          size={18}
-          color={theme.mutedForeground}
-        />
-        <Text className="text-base text-muted-foreground">
-          {disabled && disabledReason ? disabledReason : resolvedPillLabel}
-        </Text>
-      </Pressable>
+        {voice.isActive ? (
+          <VoiceRecordingPanel
+            compact
+            text={voice.partialText}
+            volume={voice.volume}
+            armed={voice.isArmed}
+            transcribing={voice.isTranscribing}
+          />
+        ) : (
+          <View className="h-11 flex-row items-center gap-2 px-4">
+            <Ionicons
+              name={pillIcon}
+              size={18}
+              color={theme.mutedForeground}
+            />
+            <Text className="text-base text-muted-foreground">
+              {disabled && disabledReason ? disabledReason : resolvedPillLabel}
+            </Text>
+          </View>
+        )}
+      </View>
     </View>
   );
 
@@ -579,16 +599,29 @@ export function MessageComposer({
         </View>
       )}
 
-      <VoiceOverlay
-        mode={voiceOverlayMode}
-        hintText={tVoice("recording.slide_up_to_cancel")}
-        cancelText={tVoice("recording.release_to_cancel")}
-        noticeText={voice.notice ? tVoice(`notice.${voice.notice}`) : null}
-      />
+      {voice.notice ? (
+        <View className="items-center">
+          <Text className="text-xs text-muted-foreground">
+            {tVoice(`notice.${voice.notice}`)}
+          </Text>
+        </View>
+      ) : null}
 
       <View
         className="rounded-2xl border border-border bg-secondary"
-        style={continuousCorners}
+        style={[
+          continuousCorners,
+          voice.isRecording || voice.isArmed
+            ? {
+                borderColor: voice.isArmed
+                  ? theme.destructive
+                  : theme.brand,
+                backgroundColor: voice.isArmed
+                  ? "rgba(239,68,68,0.06)"
+                  : theme.secondary,
+              }
+            : null,
+        ]}
       >
         {(mentions.length > 0 || attachments.length > 0) ? (
           <View className="px-2 pt-2 pb-1">
@@ -629,8 +662,10 @@ export function MessageComposer({
         />
 
         {voice.isActive ? (
-          <VoiceLiveTranscript
+          <VoiceRecordingPanel
             text={voice.partialText}
+            volume={voice.volume}
+            armed={voice.isArmed}
             transcribing={voice.isTranscribing}
           />
         ) : null}
@@ -669,14 +704,6 @@ export function MessageComposer({
             />
           </View>
           <View className="flex-1" />
-          {voice.isActive ? (
-            <VoiceRecordingStrip
-              durationMs={voice.durationMs}
-              volume={voice.volume}
-              armed={voice.isArmed}
-              transcribing={voice.isTranscribing}
-            />
-          ) : null}
           <VoiceInputButton
             key="voice-input-mic"
             enabled={!disabled}

@@ -3,6 +3,7 @@
     "label": "语音输入",
     "hint": "按住说话，上滑取消"
   },
+  "composer_placeholder": "发消息或按住说话",
   "listening": "正在听…",
   "transcribing": "正在转写…",
   "recording": {
